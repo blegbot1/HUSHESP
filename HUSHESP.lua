@@ -43,6 +43,11 @@ local Settings = {
     NoSound = false,
     Noclip = false,
     InfiniteStamina = false,
+    Chams_Players = true,
+    Chams_Monsters = true,
+    Chams_Loot = true,
+    Chams_Exits = false,
+    ESP_Radius = 300,
     ShowDistance = true,
     ShowHealth = true,
 }
@@ -88,15 +93,19 @@ local function createBillboard(parent, text, color)
     return bb, label
 end
 
-local function addESP(target, text, fillColor, outlineColor, textColor)
+local function addESP(target, text, fillColor, outlineColor, textColor, chamsEnabled)
     if ESPObjects[target] then
-        -- update text
         if ESPObjects[target].label then
             ESPObjects[target].label.Text = text
+        end
+        -- toggle highlight visibility
+        if ESPObjects[target].highlight then
+            ESPObjects[target].highlight.Enabled = chamsEnabled ~= false
         end
         return
     end
     local hl = createHighlight(target, fillColor, outlineColor)
+    hl.Enabled = chamsEnabled ~= false
     local bb, label = createBillboard(target, text, textColor)
     ESPObjects[target] = { highlight = hl, billboard = bb, label = label }
 end
@@ -288,7 +297,12 @@ RunService.Heartbeat:Connect(function()
                 if Settings.ShowHealth and hum then
                     text = text .. " HP:" .. math.floor(hum.Health)
                 end
-                addESP(hrp, text, Color3.fromRGB(0, 255, 100), Color3.fromRGB(0, 200, 80), Color3.fromRGB(0, 255, 100))
+                local charPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
+                if charPos then
+                    local dist = (hrp.Position - charPos).Magnitude
+                    if dist > Settings.ESP_Radius then return end
+                end
+                addESP(hrp, text, Color3.fromRGB(0, 255, 100), Color3.fromRGB(0, 200, 80), Color3.fromRGB(0, 255, 100), Settings.Chams_Players)
             end
         end
     end
@@ -307,7 +321,7 @@ RunService.Heartbeat:Connect(function()
                 if Settings.ShowHealth and hum then
                     text = text .. " HP:" .. math.floor(hum.Health)
                 end
-                addESP(hrp, text, Color3.fromRGB(255, 50, 50), Color3.fromRGB(200, 0, 0), Color3.fromRGB(255, 80, 80))
+                addESP(hrp, text, Color3.fromRGB(255, 50, 50), Color3.fromRGB(200, 0, 0), Color3.fromRGB(255, 80, 80), Settings.Chams_Monsters)
             end
         end
     end
@@ -323,7 +337,7 @@ RunService.Heartbeat:Connect(function()
                         local dist = (target.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
                         text = text .. " [" .. math.floor(dist) .. "m]"
                     end
-                    addESP(target, text, Color3.fromRGB(255, 220, 0), Color3.fromRGB(200, 180, 0), Color3.fromRGB(255, 240, 100))
+                    addESP(target, text, Color3.fromRGB(255, 220, 0), Color3.fromRGB(200, 180, 0), Color3.fromRGB(255, 240, 100), Settings.Chams_Loot)
                 end
             end
         end
@@ -343,7 +357,7 @@ RunService.Heartbeat:Connect(function()
                                 local dist = (target.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
                                 text = text .. " [" .. math.floor(dist) .. "m]"
                             end
-                            addESP(target, text, Color3.fromRGB(0, 150, 255), Color3.fromRGB(0, 100, 200), Color3.fromRGB(100, 200, 255))
+                            addESP(target, text, Color3.fromRGB(0, 150, 255), Color3.fromRGB(0, 100, 200), Color3.fromRGB(100, 200, 255), Settings.Chams_Exits)
                         end
                         break
                     end
@@ -372,9 +386,14 @@ end)
 -- ===== Rayfield UI =====
 local MainTab = Window:CreateTab("ESP", 4483362458)
 MainTab:CreateToggle({ Name = "Player ESP", CurrentValue = true, Flag = "ESP_Players", Callback = function(v) Settings.ESP_Players = v end })
+MainTab:CreateToggle({ Name = "Player Chams", CurrentValue = true, Flag = "Chams_Players", Callback = function(v) Settings.Chams_Players = v end })
 MainTab:CreateToggle({ Name = "Monster ESP", CurrentValue = true, Flag = "ESP_Monsters", Callback = function(v) Settings.ESP_Monsters = v end })
+MainTab:CreateToggle({ Name = "Monster Chams", CurrentValue = true, Flag = "Chams_Monsters", Callback = function(v) Settings.Chams_Monsters = v end })
 MainTab:CreateToggle({ Name = "Loot ESP", CurrentValue = true, Flag = "ESP_Loot", Callback = function(v) Settings.ESP_Loot = v end })
+MainTab:CreateToggle({ Name = "Loot Chams", CurrentValue = true, Flag = "Chams_Loot", Callback = function(v) Settings.Chams_Loot = v end })
 MainTab:CreateToggle({ Name = "Exit ESP", CurrentValue = true, Flag = "ESP_Exits", Callback = function(v) Settings.ESP_Exits = v end })
+MainTab:CreateToggle({ Name = "Exit Chams", CurrentValue = false, Flag = "Chams_Exits", Callback = function(v) Settings.Chams_Exits = v end })
+MainTab:CreateSlider({ Name = "ESP Radius", Range = {50, 500}, Increment = 10, Suffix = "studs", CurrentValue = 300, Flag = "ESP_Radius", Callback = function(v) Settings.ESP_Radius = v end })
 MainTab:CreateToggle({ Name = "Show Distance", CurrentValue = true, Flag = "ShowDistance", Callback = function(v) Settings.ShowDistance = v end })
 MainTab:CreateToggle({ Name = "Show Health", CurrentValue = true, Flag = "ShowHealth", Callback = function(v) Settings.ShowHealth = v end })
 
