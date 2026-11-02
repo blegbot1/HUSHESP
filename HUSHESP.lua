@@ -9,7 +9,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -35,7 +35,12 @@ local Settings = {
     ESP_Players = true,
     ESP_Monsters = true,
     ESP_Loot = true,
-    ESP_Exits = true,
+    Chams_Players = true,
+    Chams_Monsters = true,
+    Chams_Loot = true,
+    ESP_Radius = 300,
+    ShowDistance = true,
+    ShowHealth = true,
     AutoLoot = false,
     AutoLootRadius = 50,
     SpeedHack = false,
@@ -43,17 +48,20 @@ local Settings = {
     NoSound = false,
     Noclip = false,
     InfiniteStamina = false,
-    Chams_Players = true,
-    Chams_Monsters = true,
-    Chams_Loot = true,
-    Chams_Exits = false,
-    ESP_Radius = 300,
-    ShowDistance = true,
-    ShowHealth = true,
+    Fullbright = false,
+}
+
+-- ===== Original lighting values =====
+local OrigLighting = {
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    Brightness = Lighting.Brightness,
+    FogEnd = Lighting.FogEnd,
+    GlobalShadows = Lighting.GlobalShadows,
 }
 
 -- ===== ESP Storage =====
-local ESPObjects = {}  -- [target] = {highlight, billboard}
+local ESPObjects = {}
 
 local function cleanupESP(target)
     if ESPObjects[target] then
@@ -98,7 +106,6 @@ local function addESP(target, text, fillColor, outlineColor, textColor, chamsEna
         if ESPObjects[target].label then
             ESPObjects[target].label.Text = text
         end
-        -- toggle highlight visibility
         if ESPObjects[target].highlight then
             ESPObjects[target].highlight.Enabled = chamsEnabled ~= false
         end
@@ -207,43 +214,6 @@ local function toggleNoclip()
     end
 end
 
--- ===== Exit teleport =====
-local ExitKeywords = {"exit", "door", "gate", "escape", "sewer", "manhole", "hatch"}
-local function getNearestExit()
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil, math.huge end
-    local hrp = char.HumanoidRootPart
-    local nearest, nearestDist = nil, math.huge
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") or obj:IsA("Model") then
-            local name = obj.Name:lower()
-            for _, kw in ipairs(ExitKeywords) do
-                if name:find(kw) then
-                    local pos = obj:IsA("Model") and obj:GetPivot().Position or obj.Position
-                    local dist = (pos - hrp.Position).Magnitude
-                    if dist < nearestDist then
-                        nearestDist = dist
-                        nearest = obj
-                    end
-                    break
-                end
-            end
-        end
-    end
-    return nearest, nearestDist
-end
-
-local function teleportToExit()
-    local exit, dist = getNearestExit()
-    if exit then
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local pos = exit:IsA("Model") and exit:GetPivot().Position or exit.Position
-            char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
-        end
-    end
-end
-
 -- ===== Infinite stamina =====
 local function infiniteStamina()
     local char = LocalPlayer.Character
@@ -251,10 +221,34 @@ local function infiniteStamina()
     for _, v in ipairs(char:GetDescendants()) do
         if v:IsA("NumberValue") or v:IsA("IntValue") then
             local name = v.Name:lower()
-            if name:find("stamina") or name:find("energy") or name:find("breath") then
+            if name:find("stamina") or name:find("energy") or name:find("breath") or name:find("sprint") then
                 v.Value = 100
             end
         end
+    end
+    -- also check attributes
+    for _, attr in ipairs({"Stamina", "stamina", "Energy", "energy", "Sprint", "sprint"}) do
+        local val = char:GetAttribute(attr)
+        if val ~= nil then
+            char:SetAttribute(attr, 100)
+        end
+    end
+end
+
+-- ===== Fullbright =====
+local function applyFullbright()
+    if Settings.Fullbright then
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+        Lighting.Brightness = 2
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+    else
+        Lighting.Ambient = OrigLighting.Ambient
+        Lighting.OutdoorAmbient = OrigLighting.OutdoorAmbient
+        Lighting.Brightness = OrigLighting.Brightness
+        Lighting.FogEnd = OrigLighting.FogEnd
+        Lighting.GlobalShadows = OrigLighting.GlobalShadows
     end
 end
 
@@ -283,6 +277,8 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
+    local charPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
+
     -- Players ESP
     if Settings.ESP_Players then
         for _, p in ipairs(Players:GetPlayers()) do
@@ -290,19 +286,20 @@ RunService.Heartbeat:Connect(function()
                 local hrp = p.Character.HumanoidRootPart
                 local hum = p.Character:FindFirstChildOfClass("Humanoid")
                 local text = p.Name
-                if Settings.ShowDistance then
-                    local dist = (hrp.Position - (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position or Vector3.new())).Magnitude
-                    text = text .. " [" .. math.floor(dist) .. "m]"
+                if Settings.ShowDistance and charPos then
+                    text = text .. " [" .. math.floor((hrp.Position - charPos).Magnitude) .. "m]"
                 end
                 if Settings.ShowHealth and hum then
                     text = text .. " HP:" .. math.floor(hum.Health)
                 end
-                local charPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
-                if charPos then
-                    local dist = (hrp.Position - charPos).Magnitude
-                    if dist > Settings.ESP_Radius then return end
-                end
                 addESP(hrp, text, Color3.fromRGB(0, 255, 100), Color3.fromRGB(0, 200, 80), Color3.fromRGB(0, 255, 100), Settings.Chams_Players)
+            end
+        end
+    else
+        -- remove player ESP
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                cleanupESP(p.Character.HumanoidRootPart)
             end
         end
     end
@@ -312,16 +309,21 @@ RunService.Heartbeat:Connect(function()
         for _, obj in ipairs(Workspace:GetDescendants()) do
             if isMonster(obj) and obj:FindFirstChild("HumanoidRootPart") then
                 local hrp = obj.HumanoidRootPart
-                local hum = obj:FindFirstChildOfClass("Humanoid")
-                local text = "MONSTER"
-                if Settings.ShowDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (hrp.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-                    text = text .. " [" .. math.floor(dist) .. "m]"
+                if charPos and (hrp.Position - charPos).Magnitude > Settings.ESP_Radius then
+                    cleanupESP(hrp)
+                else
+                    local text = "MONSTER"
+                    if Settings.ShowDistance and charPos then
+                        text = text .. " [" .. math.floor((hrp.Position - charPos).Magnitude) .. "m]"
+                    end
+                    addESP(hrp, text, Color3.fromRGB(255, 50, 50), Color3.fromRGB(200, 0, 0), Color3.fromRGB(255, 80, 80), Settings.Chams_Monsters)
                 end
-                if Settings.ShowHealth and hum then
-                    text = text .. " HP:" .. math.floor(hum.Health)
-                end
-                addESP(hrp, text, Color3.fromRGB(255, 50, 50), Color3.fromRGB(200, 0, 0), Color3.fromRGB(255, 80, 80), Settings.Chams_Monsters)
+            end
+        end
+    else
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if isMonster(obj) and obj:FindFirstChild("HumanoidRootPart") then
+                cleanupESP(obj.HumanoidRootPart)
             end
         end
     end
@@ -332,36 +334,23 @@ RunService.Heartbeat:Connect(function()
             if isLootContainer(obj) then
                 local target = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
                 if target and target:IsA("BasePart") then
-                    local text = "LOOT"
-                    if Settings.ShowDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                        local dist = (target.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-                        text = text .. " [" .. math.floor(dist) .. "m]"
+                    if charPos and (target.Position - charPos).Magnitude > Settings.ESP_Radius then
+                        cleanupESP(target)
+                    else
+                        local text = "LOOT"
+                        if Settings.ShowDistance and charPos then
+                            text = text .. " [" .. math.floor((target.Position - charPos).Magnitude) .. "m]"
+                        end
+                        addESP(target, text, Color3.fromRGB(255, 220, 0), Color3.fromRGB(200, 180, 0), Color3.fromRGB(255, 240, 100), Settings.Chams_Loot)
                     end
-                    addESP(target, text, Color3.fromRGB(255, 220, 0), Color3.fromRGB(200, 180, 0), Color3.fromRGB(255, 240, 100), Settings.Chams_Loot)
                 end
             end
         end
-    end
-
-    -- Exits ESP
-    if Settings.ESP_Exits then
+    else
         for _, obj in ipairs(Workspace:GetDescendants()) do
-            if (obj:IsA("BasePart") or obj:IsA("Model")) then
-                local name = obj.Name:lower()
-                for _, kw in ipairs(ExitKeywords) do
-                    if name:find(kw) then
-                        local target = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
-                        if target and target:IsA("BasePart") then
-                            local text = "EXIT"
-                            if Settings.ShowDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                                local dist = (target.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-                                text = text .. " [" .. math.floor(dist) .. "m]"
-                            end
-                            addESP(target, text, Color3.fromRGB(0, 150, 255), Color3.fromRGB(0, 100, 200), Color3.fromRGB(100, 200, 255), Settings.Chams_Exits)
-                        end
-                        break
-                    end
-                end
+            if isLootContainer(obj) then
+                local target = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
+                if target then cleanupESP(target) end
             end
         end
     end
@@ -369,7 +358,7 @@ RunService.Heartbeat:Connect(function()
     -- Auto-loot
     autoLoot()
 
-    -- Speed
+    -- Speed (every frame to override game resets)
     applySpeed()
 
     -- No sound
@@ -381,6 +370,9 @@ RunService.Heartbeat:Connect(function()
     if Settings.InfiniteStamina then
         infiniteStamina()
     end
+
+    -- Fullbright
+    applyFullbright()
 end)
 
 -- ===== Rayfield UI =====
@@ -391,8 +383,6 @@ MainTab:CreateToggle({ Name = "Monster ESP", CurrentValue = true, Flag = "ESP_Mo
 MainTab:CreateToggle({ Name = "Monster Chams", CurrentValue = true, Flag = "Chams_Monsters", Callback = function(v) Settings.Chams_Monsters = v end })
 MainTab:CreateToggle({ Name = "Loot ESP", CurrentValue = true, Flag = "ESP_Loot", Callback = function(v) Settings.ESP_Loot = v end })
 MainTab:CreateToggle({ Name = "Loot Chams", CurrentValue = true, Flag = "Chams_Loot", Callback = function(v) Settings.Chams_Loot = v end })
-MainTab:CreateToggle({ Name = "Exit ESP", CurrentValue = true, Flag = "ESP_Exits", Callback = function(v) Settings.ESP_Exits = v end })
-MainTab:CreateToggle({ Name = "Exit Chams", CurrentValue = false, Flag = "Chams_Exits", Callback = function(v) Settings.Chams_Exits = v end })
 MainTab:CreateSlider({ Name = "ESP Radius", Range = {50, 500}, Increment = 10, Suffix = "studs", CurrentValue = 300, Flag = "ESP_Radius", Callback = function(v) Settings.ESP_Radius = v end })
 MainTab:CreateToggle({ Name = "Show Distance", CurrentValue = true, Flag = "ShowDistance", Callback = function(v) Settings.ShowDistance = v end })
 MainTab:CreateToggle({ Name = "Show Health", CurrentValue = true, Flag = "ShowHealth", Callback = function(v) Settings.ShowHealth = v end })
@@ -419,7 +409,10 @@ MoveTab:CreateToggle({ Name = "Noclip", CurrentValue = false, Flag = "Noclip", C
 end })
 MoveTab:CreateToggle({ Name = "No Sound (mute footsteps)", CurrentValue = false, Flag = "NoSound", Callback = function(v) Settings.NoSound = v end })
 MoveTab:CreateToggle({ Name = "Infinite Stamina", CurrentValue = false, Flag = "InfiniteStamina", Callback = function(v) Settings.InfiniteStamina = v end })
-MoveTab:CreateButton({ Name = "Teleport to Nearest Exit", Callback = teleportToExit })
+MoveTab:CreateToggle({ Name = "Fullbright", CurrentValue = false, Flag = "Fullbright", Callback = function(v) Settings.Fullbright = v; applyFullbright() end })
+
+local VisualTab = Window:CreateTab("Visual", 4483362458)
+VisualTab:CreateButton({ Name = "Teleport to Nearest Exit", Callback = teleportToExit })
 
 -- ===== Character respawn =====
 LocalPlayer.CharacterAdded:Connect(function(char)
