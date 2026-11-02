@@ -9,7 +9,7 @@ if not LocalPlayer.Character then LocalPlayer.CharacterAdded:Wait() end
 task.wait(2)
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local VERSION = "2.9"
+local VERSION = "2.10"
 local Window = Rayfield:CreateWindow({Name='HUSH ESP v'..VERSION,LoadingTitle='HUSH ESP',LoadingSubtitle='Open Source',ConfigurationSaving={Enabled=true,FolderName='HUSHESP',FileName='Config'},Discord={Enabled=false},KeySystem=false})
 
 local Settings = {ESP_Players=true,ESP_Monsters=true,ESP_Loot=true,Chams_Players=true,Chams_Monsters=true,Chams_Loot=true,ShowDistance=true,ShowHealth=true,SpeedHack=false,WalkSpeed=50,InfiniteStamina=false,Fullbright=false}
@@ -91,4 +91,4 @@ UserInputService.InputBegan:Connect(function(input, gpe)
         pcall(function() Window:Toggle() end)
     end
 end)
-print('[HUSHESP] ready — Rayfield loaded (K to toggle)'); Rayfield:Notify({Title='HUSH ESP',Content='Loaded successfully',Duration=3})
+task.spawn(function() task.wait(3) local ps=LocalPlayer:FindFirstChild('PlayerScripts') local client=ps and ps:FindFirstChild('Client') local breath=client and client:FindFirstChild('Breath') if breath and breath:IsA('ModuleScript') then local ok,mod=pcall(require,breath) if ok then print('[HUSHESP Breath] type',typeof(mod)) if type(mod)=='table' then for k,v in pairs(mod) do print('[HUSHESP Breath] key',k,typeof(v)) end for _,fn in pairs(mod) do if type(fn)=='function' then for i=1,100 do local name,val=pcall(debug.getupvalue,fn,i) if not name or val==nil then break end print('[HUSHESP Breath upvalue]',name,typeof(val),tostring(val)) end end end end end end local breathRemote=nil for _,v in ipairs(game:GetDescendants()) do if v.Name=='Breath' and v:IsA('RemoteEvent') then breathRemote=v break end end if breathRemote then local oldFire local ok,err=pcall(function() oldFire=hookfunction(breathRemote.FireServer,function(self,...) print('[HUSHESP Breath remote]',...) return oldFire(self,...) end) end) if not ok then print('[HUSHESP Breath hook failed]',err) end end end)
