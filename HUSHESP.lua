@@ -1,5 +1,5 @@
 -- ============================================================
---  HUSH ESP — Main Script
+--  HUSH ESP — Main Script (Rayfield UI)
 --  Game: HUSH: They can hear. (BETA)
 --  Place: 133927229860262
 --  Open source — no keys, no owners, no credits
@@ -14,27 +14,65 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
+-- ===== Rayfield =====
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "HUSH ESP",
+    LoadingTitle = "HUSH ESP",
+    LoadingSubtitle = "Open Source",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "HUSHESP",
+        FileName = "Config"
+    },
+    Discord = { Enabled = false },
+    KeySystem = false,
+})
+
 -- ===== Settings =====
 local Settings = {
     ESP_Players = true,
     ESP_Monsters = true,
     ESP_Loot = true,
+    ESP_Exits = true,
     AutoLoot = false,
     AutoLootRadius = 50,
     SpeedHack = false,
     WalkSpeed = 50,
     NoSound = false,
-    AutoSell = false,
+    Noclip = false,
     InfiniteStamina = false,
+    ShowDistance = true,
+    ShowHealth = true,
 }
 
--- ===== ESP =====
-local ESPObjects = {}
+-- ===== ESP Storage =====
+local ESPObjects = {}  -- [target] = {highlight, billboard}
+
+local function cleanupESP(target)
+    if ESPObjects[target] then
+        if ESPObjects[target].highlight then ESPObjects[target].highlight:Destroy() end
+        if ESPObjects[target].billboard then ESPObjects[target].billboard:Destroy() end
+        ESPObjects[target] = nil
+    end
+end
+
+local function createHighlight(parent, fillColor, outlineColor)
+    local hl = Instance.new("Highlight")
+    hl.FillColor = fillColor
+    hl.OutlineColor = outlineColor
+    hl.FillTransparency = 0.5
+    hl.OutlineTransparency = 0
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent = parent
+    return hl
+end
 
 local function createBillboard(parent, text, color)
     local bb = Instance.new("BillboardGui")
-    bb.Size = UDim2.new(0, 100, 0, 30)
-    bb.StudsOffset = Vector3.new(0, 3, 0)
+    bb.Size = UDim2.new(0, 120, 0, 40)
+    bb.StudsOffset = Vector3.new(0, 4, 0)
     bb.AlwaysOnTop = true
     bb.Parent = parent
     local label = Instance.new("TextLabel")
@@ -43,27 +81,28 @@ local function createBillboard(parent, text, color)
     label.Text = text
     label.TextColor3 = color
     label.TextStrokeTransparency = 0
+    label.TextStrokeColor3 = Color3.new(0, 0, 0)
     label.Font = Enum.Font.GothamBold
-    label.TextSize = 12
+    label.TextSize = 13
     label.Parent = bb
-    return bb
+    return bb, label
 end
 
-local function addESP(obj, text, color)
-    if ESPObjects[obj] then return end
-    local bb = createBillboard(obj, text, color)
-    ESPObjects[obj] = bb
-end
-
-local function removeESP(obj)
-    if ESPObjects[obj] then
-        ESPObjects[obj]:Destroy()
-        ESPObjects[obj] = nil
+local function addESP(target, text, fillColor, outlineColor, textColor)
+    if ESPObjects[target] then
+        -- update text
+        if ESPObjects[target].label then
+            ESPObjects[target].label.Text = text
+        end
+        return
     end
+    local hl = createHighlight(target, fillColor, outlineColor)
+    local bb, label = createBillboard(target, text, textColor)
+    ESPObjects[target] = { highlight = hl, billboard = bb, label = label }
 end
 
--- ===== Loot containers detection =====
-local LootKeywords = {"crate", "lockbox", "loot", "chest", "box", "container", "barrel", "supply"}
+-- ===== Loot containers =====
+local LootKeywords = {"crate", "lockbox", "loot", "chest", "box", "container", "barrel", "supply", "cache", "stash"}
 
 local function isLootContainer(obj)
     if not obj:IsA("BasePart") and not obj:IsA("Model") then return false end
@@ -76,7 +115,7 @@ end
 
 local function getNearestLootContainer()
     local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil, math.huge end
     local hrp = char.HumanoidRootPart
     local nearest, nearestDist = nil, math.huge
     for _, obj in ipairs(Workspace:GetDescendants()) do
@@ -102,7 +141,6 @@ local function autoLoot()
     if container and dist and dist <= Settings.AutoLootRadius then
         local pos = container:IsA("Model") and container:GetPivot().Position or container.Position
         hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
-        -- try to trigger proximity prompt or click detector
         for _, desc in ipairs(container:GetDescendants()) do
             if desc:IsA("ProximityPrompt") then
                 desc:InputHoldBegin()
@@ -115,7 +153,7 @@ local function autoLoot()
     end
 end
 
--- ===== Speed hack =====
+-- ===== Speed =====
 local function applySpeed()
     local char = LocalPlayer.Character
     if not char then return end
@@ -125,7 +163,7 @@ local function applySpeed()
     end
 end
 
--- ===== No sound (mute footsteps) =====
+-- ===== No sound =====
 local function applyNoSound()
     local char = LocalPlayer.Character
     if not char then return end
@@ -136,80 +174,16 @@ local function applyNoSound()
     end
 end
 
--- ===== Monster detection =====
-local MonsterKeywords = {"monster", "creature", "enemy", "hunter", "stalker", "beast"}
-
-local function isMonster(obj)
-    if not obj:IsA("Model") then return false end
-    local name = obj.Name:lower()
-    for _, kw in ipairs(MonsterKeywords) do
-        if name:find(kw) then return true end
-    end
-    -- check for humanoid without player
-    local hum = obj:FindFirstChildOfClass("Humanoid")
-    if hum and not Players:GetPlayerFromCharacter(obj) then
-        return true
-    end
-    return false
-end
-
--- ===== Main loop =====
-RunService.Heartbeat:Connect(function()
-    -- Update ESP
-    if Settings.ESP_Players then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                addESP(p.Character.HumanoidRootPart, p.Name, Color3.fromRGB(0, 255, 0))
-            end
-        end
-    end
-
-    if Settings.ESP_Monsters then
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if isMonster(obj) and obj:FindFirstChild("HumanoidRootPart") then
-                addESP(obj.HumanoidRootPart, "MONSTER", Color3.fromRGB(255, 0, 0))
-            end
-        end
-    end
-
-    if Settings.ESP_Loot then
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if isLootContainer(obj) then
-                local target = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
-                if target then
-                    addESP(target, "LOOT", Color3.fromRGB(255, 255, 0))
-                end
-            end
-        end
-    end
-
-    -- Auto-loot
-    if Settings.AutoLoot then
-        autoLoot()
-    end
-
-    -- Speed
-    applySpeed()
-
-    -- Infinite stamina
-    if Settings.InfiniteStamina then
-        infiniteStamina()
-    end
-end)
-
 -- ===== Noclip =====
-local NoclipEnabled = false
 local NoclipConn
 local function toggleNoclip()
-    NoclipEnabled = not NoclipEnabled
-    if NoclipEnabled then
+    Settings.Noclip = not Settings.Noclip
+    if Settings.Noclip then
         NoclipConn = RunService.Stepped:Connect(function()
             local char = LocalPlayer.Character
             if char then
                 for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
+                    if part:IsA("BasePart") then part.CanCollide = false end
                 end
             end
         end)
@@ -218,20 +192,17 @@ local function toggleNoclip()
         local char = LocalPlayer.Character
         if char then
             for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
+                if part:IsA("BasePart") then part.CanCollide = true end
             end
         end
     end
-    print("[HUSHESP] Noclip:", NoclipEnabled)
 end
 
--- ===== Teleport to nearest exit =====
-local ExitKeywords = {"exit", "door", "gate", "escape", "sewer", "manhole"}
+-- ===== Exit teleport =====
+local ExitKeywords = {"exit", "door", "gate", "escape", "sewer", "manhole", "hatch"}
 local function getNearestExit()
     local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil, math.huge end
     local hrp = char.HumanoidRootPart
     local nearest, nearestDist = nil, math.huge
     for _, obj in ipairs(Workspace:GetDescendants()) do
@@ -260,14 +231,11 @@ local function teleportToExit()
         if char and char:FindFirstChild("HumanoidRootPart") then
             local pos = exit:IsA("Model") and exit:GetPivot().Position or exit.Position
             char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
-            print("[HUSHESP] Teleported to exit")
         end
-    else
-        print("[HUSHESP] No exit found")
     end
 end
 
--- ===== Infinite stamina (if game uses stamina) =====
+-- ===== Infinite stamina =====
 local function infiniteStamina()
     local char = LocalPlayer.Character
     if not char then return end
@@ -281,27 +249,158 @@ local function infiniteStamina()
     end
 end
 
--- ===== Keybinds =====
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.L then
-        Settings.AutoLoot = not Settings.AutoLoot
-        print("[HUSHESP] AutoLoot:", Settings.AutoLoot)
-    elseif input.KeyCode == Enum.KeyCode.M then
-        Settings.NoSound = not Settings.NoSound
-        print("[HUSHESP] NoSound:", Settings.NoSound)
-    elseif input.KeyCode == Enum.KeyCode.K then
-        Settings.SpeedHack = not Settings.SpeedHack
-        print("[HUSHESP] SpeedHack:", Settings.SpeedHack)
-    elseif input.KeyCode == Enum.KeyCode.N then
-        toggleNoclip()
-    elseif input.KeyCode == Enum.KeyCode.E then
-        teleportToExit()
-    elseif input.KeyCode == Enum.KeyCode.S then
-        Settings.InfiniteStamina = not (Settings.InfiniteStamina or false)
-        print("[HUSHESP] InfiniteStamina:", Settings.InfiniteStamina)
+-- ===== Monster detection =====
+local MonsterKeywords = {"monster", "creature", "enemy", "hunter", "stalker", "beast", "zombie"}
+
+local function isMonster(obj)
+    if not obj:IsA("Model") then return false end
+    local name = obj.Name:lower()
+    for _, kw in ipairs(MonsterKeywords) do
+        if name:find(kw) then return true end
+    end
+    local hum = obj:FindFirstChildOfClass("Humanoid")
+    if hum and not Players:GetPlayerFromCharacter(obj) then
+        return true
+    end
+    return false
+end
+
+-- ===== Main loop =====
+RunService.Heartbeat:Connect(function()
+    -- Clean up destroyed ESP targets
+    for target, data in pairs(ESPObjects) do
+        if not target or not target.Parent then
+            cleanupESP(target)
+        end
+    end
+
+    -- Players ESP
+    if Settings.ESP_Players then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = p.Character.HumanoidRootPart
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                local text = p.Name
+                if Settings.ShowDistance then
+                    local dist = (hrp.Position - (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position or Vector3.new())).Magnitude
+                    text = text .. " [" .. math.floor(dist) .. "m]"
+                end
+                if Settings.ShowHealth and hum then
+                    text = text .. " HP:" .. math.floor(hum.Health)
+                end
+                addESP(hrp, text, Color3.fromRGB(0, 255, 100), Color3.fromRGB(0, 200, 80), Color3.fromRGB(0, 255, 100))
+            end
+        end
+    end
+
+    -- Monsters ESP
+    if Settings.ESP_Monsters then
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if isMonster(obj) and obj:FindFirstChild("HumanoidRootPart") then
+                local hrp = obj.HumanoidRootPart
+                local hum = obj:FindFirstChildOfClass("Humanoid")
+                local text = "MONSTER"
+                if Settings.ShowDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (hrp.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                    text = text .. " [" .. math.floor(dist) .. "m]"
+                end
+                if Settings.ShowHealth and hum then
+                    text = text .. " HP:" .. math.floor(hum.Health)
+                end
+                addESP(hrp, text, Color3.fromRGB(255, 50, 50), Color3.fromRGB(200, 0, 0), Color3.fromRGB(255, 80, 80))
+            end
+        end
+    end
+
+    -- Loot ESP
+    if Settings.ESP_Loot then
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if isLootContainer(obj) then
+                local target = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
+                if target and target:IsA("BasePart") then
+                    local text = "LOOT"
+                    if Settings.ShowDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        local dist = (target.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                        text = text .. " [" .. math.floor(dist) .. "m]"
+                    end
+                    addESP(target, text, Color3.fromRGB(255, 220, 0), Color3.fromRGB(200, 180, 0), Color3.fromRGB(255, 240, 100))
+                end
+            end
+        end
+    end
+
+    -- Exits ESP
+    if Settings.ESP_Exits then
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if (obj:IsA("BasePart") or obj:IsA("Model")) then
+                local name = obj.Name:lower()
+                for _, kw in ipairs(ExitKeywords) do
+                    if name:find(kw) then
+                        local target = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
+                        if target and target:IsA("BasePart") then
+                            local text = "EXIT"
+                            if Settings.ShowDistance and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                                local dist = (target.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                                text = text .. " [" .. math.floor(dist) .. "m]"
+                            end
+                            addESP(target, text, Color3.fromRGB(0, 150, 255), Color3.fromRGB(0, 100, 200), Color3.fromRGB(100, 200, 255))
+                        end
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    -- Auto-loot
+    autoLoot()
+
+    -- Speed
+    applySpeed()
+
+    -- No sound
+    if Settings.NoSound then
+        applyNoSound()
+    end
+
+    -- Infinite stamina
+    if Settings.InfiniteStamina then
+        infiniteStamina()
     end
 end)
+
+-- ===== Rayfield UI =====
+local MainTab = Window:CreateTab("ESP", 4483362458)
+MainTab:CreateToggle({ Name = "Player ESP", CurrentValue = true, Flag = "ESP_Players", Callback = function(v) Settings.ESP_Players = v end })
+MainTab:CreateToggle({ Name = "Monster ESP", CurrentValue = true, Flag = "ESP_Monsters", Callback = function(v) Settings.ESP_Monsters = v end })
+MainTab:CreateToggle({ Name = "Loot ESP", CurrentValue = true, Flag = "ESP_Loot", Callback = function(v) Settings.ESP_Loot = v end })
+MainTab:CreateToggle({ Name = "Exit ESP", CurrentValue = true, Flag = "ESP_Exits", Callback = function(v) Settings.ESP_Exits = v end })
+MainTab:CreateToggle({ Name = "Show Distance", CurrentValue = true, Flag = "ShowDistance", Callback = function(v) Settings.ShowDistance = v end })
+MainTab:CreateToggle({ Name = "Show Health", CurrentValue = true, Flag = "ShowHealth", Callback = function(v) Settings.ShowHealth = v end })
+
+local LootTab = Window:CreateTab("Loot", 4483362458)
+LootTab:CreateToggle({ Name = "Auto Loot", CurrentValue = false, Flag = "AutoLoot", Callback = function(v) Settings.AutoLoot = v end })
+LootTab:CreateSlider({ Name = "Loot Radius", Range = {10, 200}, Increment = 5, Suffix = "studs", CurrentValue = 50, Flag = "AutoLootRadius", Callback = function(v) Settings.AutoLootRadius = v end })
+LootTab:CreateButton({ Name = "Teleport to Nearest Loot", Callback = function()
+    local container, dist = getNearestLootContainer()
+    if container then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = container:IsA("Model") and container:GetPivot().Position or container.Position
+            char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+        end
+    end
+end })
+
+local MoveTab = Window:CreateTab("Movement", 4483362458)
+MoveTab:CreateToggle({ Name = "Speed Hack", CurrentValue = false, Flag = "SpeedHack", Callback = function(v) Settings.SpeedHack = v end })
+MoveTab:CreateSlider({ Name = "Walk Speed", Range = {16, 200}, Increment = 1, Suffix = "ws", CurrentValue = 50, Flag = "WalkSpeed", Callback = function(v) Settings.WalkSpeed = v end })
+MoveTab:CreateToggle({ Name = "Noclip", CurrentValue = false, Flag = "Noclip", Callback = function(v)
+    if v ~= Settings.Noclip then toggleNoclip() end
+end })
+MoveTab:CreateToggle({ Name = "No Sound (mute footsteps)", CurrentValue = false, Flag = "NoSound", Callback = function(v) Settings.NoSound = v end })
+MoveTab:CreateToggle({ Name = "Infinite Stamina", CurrentValue = false, Flag = "InfiniteStamina", Callback = function(v) Settings.InfiniteStamina = v end })
+MoveTab:CreateButton({ Name = "Teleport to Nearest Exit", Callback = teleportToExit })
 
 -- ===== Character respawn =====
 LocalPlayer.CharacterAdded:Connect(function(char)
@@ -310,5 +409,5 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     applyNoSound()
 end)
 
-print("[HUSHESP] ready")
-print("[HUSHESP] L=AutoLoot | M=NoSound | K=SpeedHack | N=Noclip | E=ExitTP | S=Stamina")
+print("[HUSHESP] ready — Rayfield loaded")
+Rayfield:Notify({ Title = "HUSH ESP", Content = "Loaded successfully", Duration = 3 })
