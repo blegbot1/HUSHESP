@@ -25,6 +25,7 @@ local Settings = {
     WalkSpeed = 50,
     NoSound = false,
     AutoSell = false,
+    InfiniteStamina = false,
 }
 
 -- ===== ESP =====
@@ -190,11 +191,95 @@ RunService.Heartbeat:Connect(function()
     -- Speed
     applySpeed()
 
-    -- No sound
-    if Settings.NoSound then
-        applyNoSound()
+    -- Infinite stamina
+    if Settings.InfiniteStamina then
+        infiniteStamina()
     end
 end)
+
+-- ===== Noclip =====
+local NoclipEnabled = false
+local NoclipConn
+local function toggleNoclip()
+    NoclipEnabled = not NoclipEnabled
+    if NoclipEnabled then
+        NoclipConn = RunService.Stepped:Connect(function()
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    else
+        if NoclipConn then NoclipConn:Disconnect() end
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = true
+                end
+            end
+        end
+    end
+    print("[HUSHESP] Noclip:", NoclipEnabled)
+end
+
+-- ===== Teleport to nearest exit =====
+local ExitKeywords = {"exit", "door", "gate", "escape", "sewer", "manhole"}
+local function getNearestExit()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    local hrp = char.HumanoidRootPart
+    local nearest, nearestDist = nil, math.huge
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") or obj:IsA("Model") then
+            local name = obj.Name:lower()
+            for _, kw in ipairs(ExitKeywords) do
+                if name:find(kw) then
+                    local pos = obj:IsA("Model") and obj:GetPivot().Position or obj.Position
+                    local dist = (pos - hrp.Position).Magnitude
+                    if dist < nearestDist then
+                        nearestDist = dist
+                        nearest = obj
+                    end
+                    break
+                end
+            end
+        end
+    end
+    return nearest, nearestDist
+end
+
+local function teleportToExit()
+    local exit, dist = getNearestExit()
+    if exit then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = exit:IsA("Model") and exit:GetPivot().Position or exit.Position
+            char.HumanoidRootPart.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+            print("[HUSHESP] Teleported to exit")
+        end
+    else
+        print("[HUSHESP] No exit found")
+    end
+end
+
+-- ===== Infinite stamina (if game uses stamina) =====
+local function infiniteStamina()
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, v in ipairs(char:GetDescendants()) do
+        if v:IsA("NumberValue") or v:IsA("IntValue") then
+            local name = v.Name:lower()
+            if name:find("stamina") or name:find("energy") or name:find("breath") then
+                v.Value = 100
+            end
+        end
+    end
+end
 
 -- ===== Keybinds =====
 UserInputService.InputBegan:Connect(function(input, gpe)
@@ -208,6 +293,13 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     elseif input.KeyCode == Enum.KeyCode.K then
         Settings.SpeedHack = not Settings.SpeedHack
         print("[HUSHESP] SpeedHack:", Settings.SpeedHack)
+    elseif input.KeyCode == Enum.KeyCode.N then
+        toggleNoclip()
+    elseif input.KeyCode == Enum.KeyCode.E then
+        teleportToExit()
+    elseif input.KeyCode == Enum.KeyCode.S then
+        Settings.InfiniteStamina = not (Settings.InfiniteStamina or false)
+        print("[HUSHESP] InfiniteStamina:", Settings.InfiniteStamina)
     end
 end)
 
@@ -219,4 +311,4 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 print("[HUSHESP] ready")
-print("[HUSHESP] L=AutoLoot | M=NoSound | K=SpeedHack")
+print("[HUSHESP] L=AutoLoot | M=NoSound | K=SpeedHack | N=Noclip | E=ExitTP | S=Stamina")
