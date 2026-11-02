@@ -5,6 +5,8 @@ local Workspace = game:GetService('Workspace')
 local Lighting = game:GetService('Lighting')
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+if not LocalPlayer.Character then LocalPlayer.CharacterAdded:Wait() end
+task.wait(2)
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({Name='HUSH ESP',LoadingTitle='HUSH ESP',LoadingSubtitle='Open Source',ConfigurationSaving={Enabled=true,FolderName='HUSHESP',FileName='Config'},Discord={Enabled=false},KeySystem=false})
