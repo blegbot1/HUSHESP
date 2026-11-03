@@ -46,7 +46,7 @@ local Settings = {
 	ShowDistance = true,
 	ShowHealth = true,
 	SpeedHack = false,
-	WalkSpeed = 50,
+	WalkSpeed = 2,
 	InfiniteStamina = false,
 	Fullbright = false
 }
@@ -260,11 +260,13 @@ local function scanWorld()
 
 	local worldFinds = Workspace:FindFirstChild('WorldFinds')
 
+	local seenLoot = {}
 	for _, object in ipairs(Workspace:GetDescendants()) do
 		-- Контейнер с кнопкой поиска
 		if object:IsA('ProximityPrompt') and object.Name == 'SearchPrompt' then
 			local parent = object.Parent
-			if parent and (parent:IsA('BasePart') or parent:IsA('Model')) then
+			if parent and (parent:IsA('BasePart') or parent:IsA('Model')) and not seenLoot[parent] then
+				seenLoot[parent] = true
 				table.insert(CachedLoot, parent)
 			end
 		-- Монстр
@@ -274,15 +276,17 @@ local function scanWorld()
 		elseif isCar(object) then
 			table.insert(CachedCars, object)
 		-- Предмет из WorldFinds (выброшенное/выроненное)
-		elseif worldFinds and object:IsDescendantOf(worldFinds) and object:IsA('BasePart') then
+		elseif worldFinds and object:IsDescendantOf(worldFinds) and object:IsA('BasePart') and not seenLoot[object] then
+			seenLoot[object] = true
 			table.insert(CachedLoot, object)
 		-- Выход / дверь / спасение
 		elseif object:IsA('BasePart') then
 			local name = string.lower(object.Name)
-			if string.find(name, 'exit') or string.find(name, 'door') or string.find(name, 'escape')
+			if (string.find(name, 'exit') or string.find(name, 'door') or string.find(name, 'escape')
 			   or string.find(name, 'boat dock') or string.find(name, 'farm track')
 			   or string.find(name, 'helipad') or string.find(name, 'north gate')
-			   or string.find(name, 'old town drain') or string.find(name, 'rail tunnel') then
+			   or string.find(name, 'old town drain') or string.find(name, 'rail tunnel')) and not seenLoot[object] then
+				seenLoot[object] = true
 				table.insert(CachedLoot, object)
 			end
 		end
@@ -399,8 +403,9 @@ RunService.RenderStepped:Connect(function(deltaTime)
 	end
 
 	local moveDirection = humanoid.MoveDirection
-	if moveDirection.Magnitude > 0 then
-		local direction = Vector3.new(moveDirection.X, 0, moveDirection.Z).Unit
+	local xz = Vector3.new(moveDirection.X, 0, moveDirection.Z)
+	if xz.Magnitude > 0 then
+		local direction = xz.Unit
 		rootPart.CFrame = rootPart.CFrame + direction * Settings.WalkSpeed * 8 * deltaTime
 	end
 end)
@@ -530,7 +535,7 @@ local function patchAllGC()
 							elseif lowerKey:find('addstamina') then
 								pcall(function()
 									hookfunction(v, function()
-										return
+										return math.huge
 									end)
 								end)
 							end
@@ -543,6 +548,8 @@ local function patchAllGC()
 end
 
 -- Комплексная бесконечная стабина
+local staminaPatched = false
+
 local function infiniteStamina()
 	local targets = {LocalPlayer.Character, LocalPlayer}
 
@@ -574,8 +581,11 @@ local function infiniteStamina()
 		end
 	end
 
-	patchBreathModule()
-	patchAllGC()
+	if not staminaPatched then
+		staminaPatched = true
+		patchBreathModule()
+		patchAllGC()
+	end
 end
 
 -- ─── Фуллбрит ──────────────────────────────────────────────
@@ -635,11 +645,15 @@ end
 
 -- ─── Главный цикл (Heartbeat): ESP + чэмсы + движение + стабина + свет ───
 RunService.Heartbeat:Connect(function()
-	-- Чистим мёртвые цели
+	-- Чистим мёртвые цели (сначала собираем, потом чистим — без мутации при итерации)
+	local toClean = {}
 	for target in pairs(ESPObjects) do
 		if not target or not target.Parent then
-			cleanupESP(target)
+			table.insert(toClean, target)
 		end
+	end
+	for _, target in ipairs(toClean) do
+		cleanupESP(target)
 	end
 
 	local charPos = nil
@@ -786,7 +800,7 @@ RunService.Heartbeat:Connect(function()
 	if Settings.InfiniteStamina then
 		infiniteStamina()
 	end
-	applyFullbright()
+	-- applyFullbright вызывается только по переключателю (см. UI)
 end)
 
 -- ─── Меню ──────────────────────────────────────────────────
