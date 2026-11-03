@@ -93,6 +93,8 @@ local function createHighlight(part, fillColor, outlineColor)
 		highlight.Parent = part
 	end
 
+	highlight.Enabled = false
+
 	return highlight
 end
 
@@ -130,8 +132,10 @@ local function addESP(target, text, fillColor, outlineColor, textColor, chamsEna
 			ESPObjects[target].highlight.Enabled = chamsEnabled ~= false
 			if target and target.Parent and target.Parent:IsA('Model') then
 				ESPObjects[target].highlight.Adornee = target.Parent
+				ESPObjects[target].highlight.Parent = target.Parent
 			else
 				ESPObjects[target].highlight.Adornee = target
+				ESPObjects[target].highlight.Parent = target
 			end
 		end
 		return
@@ -150,8 +154,7 @@ end
 
 -- ─── Ключевые слова для распознавания объектов ─────────────
 local LootKeywords = {
-	'fridge', 'cabinet', 'dresser', 'toolbox', 'lockbox',
-	'chest', 'safe', 'crate', 'box', 'bag', 'suitcase', 'dropped'
+	'lockbox', 'crate'
 }
 local CarKeywords = {
 	'car', 'vehicle', 'truck', 'jeep', 'sedan', 'bike', 'motorcycle',
