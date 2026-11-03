@@ -12,7 +12,7 @@ end
 task.wait(2)
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local VERSION = "2.18"
+local VERSION = "2.19"
 local Window = Rayfield:CreateWindow({
     Name = 'HUSH ESP v' .. VERSION,
     LoadingTitle = 'HUSH ESP',
@@ -128,8 +128,8 @@ local function addESP(target, text, fillColor, outlineColor, textColor, chamsEna
     }
 end
 
-local LootKeywords = {'fridge', 'cabinet', 'dresser', 'toolbox', 'lockbox'}
-local CarKeywords = {'car', 'vehicle', 'truck', 'jeep', 'sedan', 'bike', 'motorcycle', 'humvee', 'van', 'suv'}
+local LootKeywords = {'fridge', 'cabinet', 'dresser', 'toolbox', 'lockbox', 'chest', 'safe', 'crate', 'box', 'bag', 'suitcase'}
+local CarKeywords = {'car', 'vehicle', 'truck', 'jeep', 'sedan', 'bike', 'motorcycle', 'humvee', 'van', 'suv', 'taxi', 'bus', 'minivan', 'pickup', 'coupe', 'hatchback', 'convertible', 'muscle', 'sport', 'atv', 'quad', 'golf cart', 'limousine'}
 local MonsterKeywords = {'monster', 'creature', 'enemy', 'hunter', 'stalker', 'beast', 'zombie'}
 
 local function hasSearchPrompt(object)
@@ -218,6 +218,8 @@ local function scanWorld()
     CachedMonsters = {}
     CachedCars = {}
 
+    local worldFinds = Workspace:FindFirstChild('WorldFinds')
+
     for _, object in ipairs(Workspace:GetDescendants()) do
         if object:IsA('ProximityPrompt') and object.Name == 'SearchPrompt' then
             local parent = object.Parent
@@ -228,6 +230,13 @@ local function scanWorld()
             table.insert(CachedMonsters, object)
         elseif isCar(object) then
             table.insert(CachedCars, object)
+        elseif worldFinds and object:IsDescendantOf(worldFinds) and object:IsA('BasePart') then
+            table.insert(CachedLoot, object)
+        elseif object:IsA('BasePart') and object:IsDescendantOf(Workspace) then
+            local name = string.lower(object.Name)
+            if string.find(name, 'exit') or string.find(name, 'door') or string.find(name, 'escape') then
+                table.insert(CachedLoot, object)
+            end
         end
     end
 
