@@ -12,7 +12,7 @@ end
 task.wait(2)
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local VERSION = "2.17"
+local VERSION = "2.18"
 local Window = Rayfield:CreateWindow({
     Name = 'HUSH ESP v' .. VERSION,
     LoadingTitle = 'HUSH ESP',
@@ -410,14 +410,7 @@ local function patchBreathModule()
     end
 end
 
-local staminaPatched = false
-
 local function patchAllGC()
-    if staminaPatched then
-        return
-    end
-    staminaPatched = true
-
     if not getgc then
         return
     end
@@ -432,6 +425,15 @@ local function patchAllGC()
                             object[key] = math.huge
                         end)
                     end
+                elseif type(value) == 'function' then
+                    local lowerKey = string.lower(tostring(key))
+                    if lowerKey:find('staminamax') then
+                        pcall(function()
+                            hookfunction(value, function()
+                                return math.huge
+                            end)
+                        end)
+                    end
                 end
             end
         elseif type(object) == 'function' then
@@ -442,6 +444,24 @@ local function patchAllGC()
                 end
                 if type(upvalue) == 'table' then
                     patchTableForStamina(upvalue, {})
+                    for k, v in pairs(upvalue) do
+                        if type(v) == 'function' and string.lower(tostring(k)):find('staminamax') then
+                            pcall(function()
+                                hookfunction(v, function()
+                                    return math.huge
+                                end)
+                            end)
+                        end
+                        if type(v) == 'function' and string.lower(tostring(k)):find('addstamina') then
+                            pcall(function()
+                                hookfunction(v, function()
+                                    return
+                                end)
+                            end)
+                        end
+                    end
+                elseif type(upvalue) == 'number' then
+                    -- handled via table patch
                 end
             end
         end
