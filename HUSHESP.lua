@@ -12,7 +12,7 @@ end
 task.wait(2)
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local VERSION = "2.15"
+local VERSION = "2.16"
 local Window = Rayfield:CreateWindow({
     Name = 'HUSH ESP v' .. VERSION,
     LoadingTitle = 'HUSH ESP',
@@ -308,7 +308,7 @@ local function applySpeed()
     local humanoid = character:FindFirstChildOfClass('Humanoid')
     if humanoid then
         if Settings.SpeedHack then
-            humanoid.WalkSpeed = Settings.WalkSpeed
+            humanoid.WalkSpeed = 16
         else
             humanoid.WalkSpeed = 12
         end
@@ -325,7 +325,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
                 local moveDirection = humanoid.MoveDirection
                 if moveDirection.Magnitude > 0 then
                     local direction = Vector3.new(moveDirection.X, 0, moveDirection.Z).Unit
-                    rootPart.CFrame = rootPart.CFrame + direction * Settings.WalkSpeed * deltaTime * 2
+                    rootPart.CFrame = rootPart.CFrame + direction * Settings.WalkSpeed * 8 * deltaTime
                 end
             end
         end
@@ -670,7 +670,7 @@ MainTab:CreateToggle({Name = 'Show Health', CurrentValue = true, Flag = 'ShowHea
 
 local MoveTab = Window:CreateTab('Movement', 4483362458)
 MoveTab:CreateToggle({Name = 'Speed Hack', CurrentValue = false, Flag = 'SpeedHack', Callback = function(value) Settings.SpeedHack = value end})
-MoveTab:CreateSlider({Name = 'Walk Speed', Range = {16, 200}, Increment = 1, Suffix = 'ws', CurrentValue = 50, Flag = 'WalkSpeed', Callback = function(value) Settings.WalkSpeed = value end})
+MoveTab:CreateSlider({Name = 'Speed Multiplier', Range = {1, 5}, Increment = 1, Suffix = 'x', CurrentValue = 2, Flag = 'WalkSpeed', Callback = function(value) Settings.WalkSpeed = value end})
 MoveTab:CreateToggle({Name = 'Infinite Stamina', CurrentValue = false, Flag = 'InfiniteStamina', Callback = function(value) Settings.InfiniteStamina = value end})
 MoveTab:CreateToggle({Name = 'Fullbright', CurrentValue = false, Flag = 'Fullbright', Callback = function(value) Settings.Fullbright = value; applyFullbright() end})
 
