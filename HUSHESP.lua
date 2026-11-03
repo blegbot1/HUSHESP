@@ -151,7 +151,8 @@ end
 -- ─── Ключевые слова для распознавания объектов ─────────────
 local LootKeywords = {
 	'fridge', 'cabinet', 'dresser', 'toolbox', 'lockbox',
-	'chest', 'safe', 'crate', 'box', 'bag', 'suitcase'
+	'chest', 'safe', 'crate', 'box', 'bag', 'suitcase',
+	'desk', 'chair', 'carriage', 'bulb', 'dropped'
 }
 local CarKeywords = {
 	'car', 'vehicle', 'truck', 'jeep', 'sedan', 'bike', 'motorcycle',
@@ -259,6 +260,7 @@ local function scanWorld()
 	CachedCars = {}
 
 	local worldFinds = Workspace:FindFirstChild('WorldFinds')
+	local dobycha = Workspace:FindFirstChild('Добыча')
 
 	for _, object in ipairs(Workspace:GetDescendants()) do
 		-- Контейнер с кнопкой поиска
@@ -275,6 +277,9 @@ local function scanWorld()
 			table.insert(CachedCars, object)
 		-- Предмет из WorldFinds (выброшенное/выроненное)
 		elseif worldFinds and object:IsDescendantOf(worldFinds) and object:IsA('BasePart') then
+			table.insert(CachedLoot, object)
+		-- Предмет из папки Добыча
+		elseif dobycha and object:IsDescendantOf(dobycha) and object:IsA('BasePart') then
 			table.insert(CachedLoot, object)
 		-- Выход / дверь / спасение
 		elseif object:IsA('BasePart') then
