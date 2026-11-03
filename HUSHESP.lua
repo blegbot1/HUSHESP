@@ -157,7 +157,7 @@ local CarKeywords = {
 	'car', 'vehicle', 'truck', 'jeep', 'sedan', 'bike', 'motorcycle',
 	'humvee', 'van', 'suv', 'taxi', 'bus', 'minivan', 'pickup',
 	'coupe', 'hatchback', 'convertible', 'muscle', 'sport', 'atv',
-	'quad', 'golf cart', 'limousine'
+	'quad', 'golf cart', 'limousine', 'chopper', 'cruiser', 'phantom', 'super'
 }
 local MonsterKeywords = {
 	'monster', 'creature', 'enemy', 'hunter', 'stalker', 'beast', 'zombie', 'watcher'
@@ -279,7 +279,10 @@ local function scanWorld()
 		-- Выход / дверь / спасение
 		elseif object:IsA('BasePart') then
 			local name = string.lower(object.Name)
-			if string.find(name, 'exit') or string.find(name, 'door') or string.find(name, 'escape') then
+			if string.find(name, 'exit') or string.find(name, 'door') or string.find(name, 'escape')
+			   or string.find(name, 'boat dock') or string.find(name, 'farm track')
+			   or string.find(name, 'helipad') or string.find(name, 'north gate')
+			   or string.find(name, 'old town drain') or string.find(name, 'rail tunnel') then
 				table.insert(CachedLoot, object)
 			end
 		end
@@ -336,7 +339,10 @@ local function teleportToExit()
 
 	for _, object in ipairs(Workspace:GetDescendants()) do
 		local name = string.lower(object.Name)
-		if string.find(name, 'exit') or string.find(name, 'door') or string.find(name, 'escape') then
+		if string.find(name, 'exit') or string.find(name, 'door') or string.find(name, 'escape')
+		   or string.find(name, 'boat dock') or string.find(name, 'farm track')
+		   or string.find(name, 'helipad') or string.find(name, 'north gate')
+		   or string.find(name, 'old town drain') or string.find(name, 'rail tunnel') then
 			local position = nil
 			if object:IsA('BasePart') then
 				position = object.Position
