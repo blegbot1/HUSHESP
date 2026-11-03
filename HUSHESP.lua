@@ -12,7 +12,7 @@ end
 task.wait(2)
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local VERSION = "2.16"
+local VERSION = "2.17"
 local Window = Rayfield:CreateWindow({
     Name = 'HUSH ESP v' .. VERSION,
     LoadingTitle = 'HUSH ESP',
@@ -103,12 +103,16 @@ end
 
 local function addESP(target, text, fillColor, outlineColor, textColor, chamsEnabled)
     if ESPObjects[target] then
-        if ESPObjects[target].label then
+        if ESPObjects[target].label and ESPObjects[target].label.Text ~= text then
             ESPObjects[target].label.Text = text
         end
         if ESPObjects[target].highlight then
             ESPObjects[target].highlight.Enabled = chamsEnabled ~= false
-            ESPObjects[target].highlight.Adornee = target
+            if target and target.Parent and target.Parent:IsA('Model') then
+                ESPObjects[target].highlight.Adornee = target.Parent
+            else
+                ESPObjects[target].highlight.Adornee = target
+            end
         end
         return
     end
@@ -345,6 +349,14 @@ local function patchTableForStamina(tableValue, seenTables)
             if lowerKey:find('stamina') or lowerKey:find('breath') or lowerKey:find('energy') or lowerKey:find('sprint') or lowerKey:find('fatigue') then
                 pcall(function()
                     tableValue[key] = math.huge
+                end)
+            end
+        elseif type(value) == 'function' then
+            if string.lower(tostring(key)) == 'staminamax' then
+                pcall(function()
+                    hookfunction(value, function()
+                        return math.huge
+                    end)
                 end)
             end
         elseif type(value) == 'table' then
