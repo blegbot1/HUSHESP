@@ -160,7 +160,7 @@ local CarKeywords = {
 	'quad', 'golf cart', 'limousine'
 }
 local MonsterKeywords = {
-	'monster', 'creature', 'enemy', 'hunter', 'stalker', 'beast', 'zombie'
+	'monster', 'creature', 'enemy', 'hunter', 'stalker', 'beast', 'zombie', 'watcher'
 }
 
 -- Есть ли просьба поиска (Prompt 'SearchPrompt')
